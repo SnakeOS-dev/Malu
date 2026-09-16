@@ -15,45 +15,32 @@ SPECIAL_TOKENS = ["<|user|>", "<|assistant|>", "<|end|>"]
 SPECIAL_IDS = {tok: VOCAB_SIZE + i for i, tok in enumerate(SPECIAL_TOKENS)}
 TOTAL_VOCAB = VOCAB_SIZE + len(SPECIAL_TOKENS)
 
+TARGET_TOKENS = 500_000_000
+
 
 def tokenize_text(text):
     return ENC.encode_ordinary(text)
 
 
-def format_conversation(conversation):
-    tokens = []
-    loss_mask = []
-    for turn in conversation:
-        role = turn["role"]
-        content = turn["content"]
-        if role == "user":
-            tokens.append(SPECIAL_IDS["<|user|>"])
-            loss_mask.append(False)
-            content_tokens = tokenize_text(content)
-            tokens.extend(content_tokens)
-            loss_mask.extend([False] * len(content_tokens))
-        elif role == "assistant":
-            tokens.append(SPECIAL_IDS["<|assistant|>"])
-            loss_mask.append(False)
-            content_tokens = tokenize_text(content)
-            tokens.extend(content_tokens)
-            loss_mask.extend([True] * len(content_tokens))
-            tokens.append(SPECIAL_IDS["<|end|>"])
-            loss_mask.append(True)
-    return tokens, loss_mask
-
-
-def process_split(split_name, output_name):
-    print(f"Processando split: {split_name}")
-    ds = load_dataset("nicholasKluge/instruct-aira-dataset-v3", split=split_name, trust_remote_code=True)
-    print(f"Exemplos: {len(ds)}")
+def process_dataset(dataset_name, split, output_name, target_tokens=TARGET_TOKENS):
+    print(f"Processando: {dataset_name} ({output_name})")
+    ds = load_dataset(dataset_name, split=split, streaming=True, trust_remote_code=True)
     all_tokens = []
     all_masks = []
-    for example in tqdm(ds, desc=split_name):
-        conv = example["conversations"]
-        tokens, mask = format_conversation(conv)
+    total = 0
+    pbar = tqdm(total=target_tokens, desc=output_name, unit="tok")
+    for example in ds:
+        text = example["text"]
+        tokens = tokenize_text(text)
+        if total + len(tokens) > target_tokens:
+            tokens = tokens[: target_tokens - total]
         all_tokens.extend(tokens)
-        all_masks.extend(mask)
+        all_masks.extend([True] * len(tokens))
+        total += len(tokens)
+        pbar.update(len(tokens))
+        if total >= target_tokens:
+            break
+    pbar.close()
     tokens_arr = np.array(all_tokens, dtype=np.uint16)
     masks_arr = np.array(all_masks, dtype=np.uint8)
     print(f"Total tokens: {len(tokens_arr):,}")
@@ -63,8 +50,8 @@ def process_split(split_name, output_name):
 
 
 if __name__ == "__main__":
-    n_pt = process_split("portuguese", "pt")
-    n_en = process_split("english", "en")
+    n_pt = process_dataset("Polygl0t/gigaverbo-v2", "train", "pt")
+    n_en = process_dataset("HuggingFaceFW/fineweb", "train", "en")
     info = {
         "vocab_size": VOCAB_SIZE,
         "total_vocab": TOTAL_VOCAB,

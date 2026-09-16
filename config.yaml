@@ -1,0 +1,38 @@
+model:
+  vocab_size: 50260
+  block_size: 512
+  n_layer: 8
+  n_head: 8
+  n_embd: 512
+  dropout: 0.0
+  bias: false
+  tie_weights: true
+
+data:
+  data_dir: "data/processed"
+  num_workers: 4
+
+training:
+  batch_size: 32
+  gradient_accumulation_steps: 4
+  learning_rate: 6.0e-4
+  weight_decay: 0.1
+  beta1: 0.9
+  beta2: 0.95
+  grad_clip: 1.0
+  max_iters: 100000
+  warmup_iters: 2000
+  lr_decay_iters: 100000
+  min_lr: 6.0e-5
+  eval_interval: 500
+  eval_iters: 200
+  log_interval: 10
+  save_interval: 1000
+  out_dir: "checkpoints"
+  dtype: "float16"
+  compile: false
+
+generation:
+  max_new_tokens: 256
+  temperature: 0.8
+  top_k: 50

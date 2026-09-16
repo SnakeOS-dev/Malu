@@ -1,0 +1,2 @@
+#!/bin/bash
+torchrun --standalone --nproc_per_node=2 -m malu.train config.yaml
